@@ -6,7 +6,7 @@
  *   sid         — web session id (required)
  *   label       — display name (optional)
  *   autoStream  — start streaming on mount (default: true)
- *   fps         — screenshot poll interval in ms (default: 800)
+ *   fps         — screenshot poll interval in ms (default: 500)
  *
  * Emits:
  *   tap(x, y, pageW, pageH) — user clicked on the page
@@ -22,7 +22,7 @@ const props = withDefaults(defineProps<{
 }>(), {
   label: '',
   autoStream: true,
-  fps: 800,
+  fps: 500,
 })
 
 const emit = defineEmits<{
@@ -31,6 +31,7 @@ const emit = defineEmits<{
 
 const streaming = ref(false)
 const streamImg = ref('')
+const imgKey = ref(0)
 const pageWidth = ref(1280)
 const pageHeight = ref(720)
 const viewportWidth = ref(1280)
@@ -42,7 +43,12 @@ const domTree = ref('')
 const showTree = ref(false)
 const customWidth = ref(1280)
 const customHeight = ref(720)
-let timer: number | null = null
+const lastFrameAt = ref('')
+const streamError = ref('')
+const isLoading = ref(false)
+
+let frameTimer: number | null = null
+let metaTimer: number | null = null
 
 const VIEWPORT_PRESETS = [
   { id: 'mobile-s', label: 'Mobile S', width: 375, height: 667 },
@@ -59,14 +65,20 @@ const isCustom = computed(() => selectedPreset.value === 'custom')
 function startStream() {
   if (streaming.value) return
   streaming.value = true
+  streamError.value = ''
   pollFrame()
-  timer = window.setInterval(pollFrame, props.fps)
+  frameTimer = window.setInterval(pollFrame, props.fps)
+  metaTimer = window.setInterval(fetchMetadata, 2000)
 }
 
 function stopStream() {
   streaming.value = false
-  if (timer) { clearInterval(timer); timer = null }
+  if (frameTimer) { clearInterval(frameTimer); frameTimer = null }
+  if (metaTimer) { clearInterval(metaTimer); metaTimer = null }
   streamImg.value = ''
+  imgKey.value = 0
+  lastFrameAt.value = ''
+  streamError.value = ''
 }
 
 function toggleStream() {
@@ -75,15 +87,25 @@ function toggleStream() {
 }
 
 async function pollFrame() {
-  if (!props.sid) return
+  if (!props.sid || !streaming.value) return
+  isLoading.value = true
   try {
     const resp = await api(`/api/web/screenshot/${encodeURIComponent(props.sid)}`)
     if (resp.ok && resp.image) {
       streamImg.value = `data:image/jpeg;base64,${resp.image}`
+      imgKey.value += 1
       pageWidth.value = resp.width || pageWidth.value
       pageHeight.value = resp.height || pageHeight.value
+      lastFrameAt.value = new Date().toLocaleTimeString()
+      streamError.value = ''
+    } else {
+      streamError.value = 'Screenshot returned no image'
     }
-  } catch {}
+  } catch (e: any) {
+    streamError.value = e.message || 'Screenshot failed'
+  } finally {
+    isLoading.value = false
+  }
 }
 
 async function fetchMetadata() {
@@ -93,14 +115,19 @@ async function fetchMetadata() {
       api(`/api/web/url/${encodeURIComponent(props.sid)}`),
       api(`/api/web/title/${encodeURIComponent(props.sid)}`),
     ])
-    if (u.ok) currentUrl.value = u.url
+    if (u.ok) {
+      currentUrl.value = u.url
+      if (urlInput.value !== currentUrl.value && document.activeElement?.tagName !== 'INPUT') {
+        urlInput.value = currentUrl.value
+      }
+    }
     if (t.ok) currentTitle.value = t.title
-    urlInput.value = currentUrl.value
   } catch {}
 }
 
 async function navigate() {
   if (!props.sid || !urlInput.value) return
+  streamError.value = ''
   await api('/api/web/navigate', {
     method: 'POST',
     body: JSON.stringify({ sid: props.sid, url: urlInput.value }),
@@ -188,7 +215,7 @@ defineExpose({ startStream, stopStream, streaming, refresh: pollFrame })
   <div class="wbw">
     <!-- Toolbar -->
     <div class="wbw-toolbar">
-      <span class="wbw-status-dot" :style="{ background: streaming ? '#22c55e' : '#475569' }"></span>
+      <span class="wbw-status-dot" :style="{ background: streaming ? '#22c55e' : '#475569' }" :title="streaming ? 'Streaming' : 'Idle'"></span>
       <span class="wbw-label">{{ label || sid || 'No session' }}</span>
 
       <form class="wbw-url" @submit.prevent="navigate">
@@ -219,13 +246,23 @@ defineExpose({ startStream, stopStream, streaming, refresh: pollFrame })
     </div>
 
     <!-- Meta -->
-    <div v-if="currentTitle" class="wbw-meta">{{ currentTitle }}</div>
+    <div v-if="currentTitle || currentUrl" class="wbw-meta">
+      <span v-if="currentTitle" class="wbw-title">{{ currentTitle }}</span>
+      <span v-if="currentUrl" class="wbw-url-display">{{ currentUrl }}</span>
+      <span v-if="lastFrameAt" class="wbw-frame-time">🔄 {{ lastFrameAt }}</span>
+    </div>
 
     <!-- Content -->
     <div class="wbw-content">
       <div class="wbw-viewport" :style="{ width: viewportWidth + 'px', height: viewportHeight + 'px' }">
         <div v-if="streaming && streamImg" class="wbw-frame">
-          <img :src="streamImg" @click="handleClick" draggable="false" />
+          <img :src="streamImg" :key="imgKey" @click="handleClick" draggable="false" />
+        </div>
+        <div v-else-if="streaming && isLoading" class="wbw-placeholder">
+          <span class="wbw-spinner">⏳</span> Loading preview...
+        </div>
+        <div v-else-if="streaming && streamError" class="wbw-placeholder wbw-error">
+          {{ streamError }}
         </div>
         <div v-else class="wbw-placeholder">
           Enter a URL and click Stream to start
@@ -328,12 +365,15 @@ defineExpose({ startStream, stopStream, streaming, refresh: pollFrame })
 .wbw-meta {
   padding: 4px 10px;
   font-size: 10px;
-  color: #64748b;
   border-bottom: 1px solid var(--border, #1e293b);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
 }
+.wbw-title { color: var(--text-2, #e2e8f0); font-weight: 600; }
+.wbw-url-display { color: #64748b; }
+.wbw-frame-time { color: #34d399; margin-left: auto; font-family: monospace; }
 .wbw-content {
   flex: 1;
   display: flex;
@@ -354,7 +394,8 @@ defineExpose({ startStream, stopStream, streaming, refresh: pollFrame })
 }
 .wbw-frame {
   width: 100%;
-  height: 100%;
+  min-width: 100%;
+  min-height: 100%;
   display: flex;
   align-items: flex-start;
   justify-content: flex-start;
@@ -373,7 +414,11 @@ defineExpose({ startStream, stopStream, streaming, refresh: pollFrame })
   justify-content: center;
   color: #334155;
   font-size: 11px;
+  gap: 6px;
 }
+.wbw-error { color: #f87171; }
+.wbw-spinner { animation: spin 1s linear infinite; display: inline-block; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 .wbw-tree {
   flex: 1;
   min-width: 260px;
