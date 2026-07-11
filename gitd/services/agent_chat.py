@@ -626,7 +626,7 @@ def _chat_openrouter(session: ChatSession, user_message: str):
         for t in TOOLS
     ]
 
-    # Build messages
+    # Build messages with current screen context
     context = ""
     try:
         tree = get_screen_tree(session.device)
@@ -640,36 +640,71 @@ def _chat_openrouter(session: ChatSession, user_message: str):
         {"role": "user", "content": f"{context}Device: {session.device}\n\n{user_message}"},
     ]
 
-    try:
-        resp = client.chat.completions.create(
-            model=session.model or "anthropic/claude-sonnet-4",
-            messages=messages,
-            tools=oai_tools,
-            max_tokens=4096,
-        )
-        msg = resp.choices[0].message
+    for turn in range(MAX_TURNS):
+        try:
+            resp = client.chat.completions.create(
+                model=session.model or "anthropic/claude-sonnet-4",
+                messages=messages,
+                tools=oai_tools,
+                max_tokens=4096,
+            )
+            msg = resp.choices[0].message
+        except Exception as e:
+            yield {"type": "error", "content": str(e)}
+            return
 
-        if msg.content:
-            session.messages.append(ChatMessage(role="assistant", content=msg.content))
-            yield {"type": "text", "content": msg.content}
+        assistant_content = msg.content or ""
+        tool_calls = msg.tool_calls or []
 
-        if msg.tool_calls:
-            for tc in msg.tool_calls:
-                tool_name = tc.function.name
+        if assistant_content:
+            session.messages.append(ChatMessage(role="assistant", content=assistant_content))
+            yield {"type": "text", "content": assistant_content}
+
+        if not tool_calls:
+            break  # No tools requested — done
+
+        # Build assistant message with tool_calls for the conversation history
+        assistant_message: dict = {"role": "assistant", "content": assistant_content}
+        openai_tool_calls = []
+        for tc in tool_calls:
+            openai_tool_calls.append(
+                {
+                    "id": tc.id,
+                    "type": "function",
+                    "function": {"name": tc.function.name, "arguments": tc.function.arguments},
+                }
+            )
+        assistant_message["tool_calls"] = openai_tool_calls
+        messages.append(assistant_message)
+
+        tool_results = []
+        for tc in tool_calls:
+            tool_name = tc.function.name
+            try:
                 tool_args = json.loads(tc.function.arguments)
-                tool_args.setdefault("device", session.device)
+            except json.JSONDecodeError:
+                tool_args = {}
+            tool_args.setdefault("device", session.device)
 
-                session.messages.append(
-                    ChatMessage(role="tool_call", tool_name=tool_name, tool_args=tool_args, content="")
-                )
-                yield {"type": "tool_call", "name": tool_name, "args": tool_args}
+            session.messages.append(
+                ChatMessage(role="tool_call", tool_name=tool_name, tool_args=tool_args, content="")
+            )
+            yield {"type": "tool_call", "name": tool_name, "args": tool_args}
+            yield {"type": "activity", "content": f"⚡ {tool_name}..."}
 
+            try:
                 result = execute_tool(tool_name, tool_args)
-                session.messages.append(ChatMessage(role="tool_result", content=result, tool_name=tool_name))
-                yield {"type": "tool_result", "name": tool_name, "result": result[:500]}
+            except Exception as e:
+                result = f"Tool error: {e}"
 
-    except Exception as e:
-        yield {"type": "error", "content": str(e)}
+            session.messages.append(ChatMessage(role="tool_result", content=result, tool_name=tool_name))
+            yield {"type": "tool_result", "name": tool_name, "result": result[:500]}
+
+            tool_results.append(
+                {"role": "tool", "tool_call_id": tc.id, "content": result[:4000]}
+            )
+
+        messages.extend(tool_results)
 
     yield {"type": "done"}
 
@@ -702,7 +737,7 @@ def _chat_deepseek(session: ChatSession, user_message: str):
         for t in TOOLS
     ]
 
-    # Build messages
+    # Build messages with current screen context
     context = ""
     try:
         tree = get_screen_tree(session.device)
@@ -716,36 +751,71 @@ def _chat_deepseek(session: ChatSession, user_message: str):
         {"role": "user", "content": f"{context}Device: {session.device}\n\n{user_message}"},
     ]
 
-    try:
-        resp = client.chat.completions.create(
-            model=session.model or "deepseek-chat",
-            messages=messages,
-            tools=oai_tools,
-            max_tokens=4096,
-        )
-        msg = resp.choices[0].message
+    for turn in range(MAX_TURNS):
+        try:
+            resp = client.chat.completions.create(
+                model=session.model or "deepseek-chat",
+                messages=messages,
+                tools=oai_tools,
+                max_tokens=4096,
+            )
+            msg = resp.choices[0].message
+        except Exception as e:
+            yield {"type": "error", "content": str(e)}
+            return
 
-        if msg.content:
-            session.messages.append(ChatMessage(role="assistant", content=msg.content))
-            yield {"type": "text", "content": msg.content}
+        assistant_content = msg.content or ""
+        tool_calls = msg.tool_calls or []
 
-        if msg.tool_calls:
-            for tc in msg.tool_calls:
-                tool_name = tc.function.name
+        if assistant_content:
+            session.messages.append(ChatMessage(role="assistant", content=assistant_content))
+            yield {"type": "text", "content": assistant_content}
+
+        if not tool_calls:
+            break  # No tools requested — done
+
+        # Build assistant message with tool_calls for the conversation history
+        assistant_message: dict = {"role": "assistant", "content": assistant_content}
+        openai_tool_calls = []
+        for tc in tool_calls:
+            openai_tool_calls.append(
+                {
+                    "id": tc.id,
+                    "type": "function",
+                    "function": {"name": tc.function.name, "arguments": tc.function.arguments},
+                }
+            )
+        assistant_message["tool_calls"] = openai_tool_calls
+        messages.append(assistant_message)
+
+        tool_results = []
+        for tc in tool_calls:
+            tool_name = tc.function.name
+            try:
                 tool_args = json.loads(tc.function.arguments)
-                tool_args.setdefault("device", session.device)
+            except json.JSONDecodeError:
+                tool_args = {}
+            tool_args.setdefault("device", session.device)
 
-                session.messages.append(
-                    ChatMessage(role="tool_call", tool_name=tool_name, tool_args=tool_args, content="")
-                )
-                yield {"type": "tool_call", "name": tool_name, "args": tool_args}
+            session.messages.append(
+                ChatMessage(role="tool_call", tool_name=tool_name, tool_args=tool_args, content="")
+            )
+            yield {"type": "tool_call", "name": tool_name, "args": tool_args}
+            yield {"type": "activity", "content": f"⚡ {tool_name}..."}
 
+            try:
                 result = execute_tool(tool_name, tool_args)
-                session.messages.append(ChatMessage(role="tool_result", content=result, tool_name=tool_name))
-                yield {"type": "tool_result", "name": tool_name, "result": result[:500]}
+            except Exception as e:
+                result = f"Tool error: {e}"
 
-    except Exception as e:
-        yield {"type": "error", "content": str(e)}
+            session.messages.append(ChatMessage(role="tool_result", content=result, tool_name=tool_name))
+            yield {"type": "tool_result", "name": tool_name, "result": result[:500]}
+
+            tool_results.append(
+                {"role": "tool", "tool_call_id": tc.id, "content": result[:4000]}
+            )
+
+        messages.extend(tool_results)
 
     yield {"type": "done"}
 
