@@ -58,9 +58,12 @@ async function loadOllamaModels() {
 function onBackendChange() {
   localStorage.setItem('creator_backend', backend.value)
   if (backend.value === 'ollama' && ollamaModels.value.length) {
-    model.value = ollamaModels.value[0]
-  } else if (MODELS[backend.value]?.length) {
-    model.value = MODELS[backend.value][0]
+    model.value = ollamaModels.value[0]!
+  } else {
+    const models = MODELS[backend.value]
+    if (models?.length) {
+      model.value = models[0]!
+    }
   }
 }
 

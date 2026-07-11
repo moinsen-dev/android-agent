@@ -19,6 +19,10 @@ const autoScroll = ref(true)
 let pollTimer: number | null = null
 let logSince = 0
 
+function hideVideoDropdown() {
+  window.setTimeout(() => { postVideoDropdownVisible.value = false }, 150)
+}
+
 /* ── Post settings ── */
 const postVideoSearch = ref('')
 const postVideo = ref('')
@@ -52,7 +56,7 @@ async function loadDevices() {
   try {
     const resp = await api('/api/phone/devices')
     devices.value = resp.devices || resp || []
-    if (devices.value.length && !selectedDevice.value) selectedDevice.value = devices.value[0].serial
+    if (devices.value.length && !selectedDevice.value) selectedDevice.value = devices.value[0]!.serial
   } catch { /* ignore */ }
 }
 
@@ -362,7 +366,7 @@ onUnmounted(() => { pollStop() })
                 autocomplete="off" class="bot-input" style="width: 100%; box-sizing: border-box; max-width: none"
                 @input="pbVideoFilter(postVideoSearch)"
                 @focus="postVideoDropdownVisible = true"
-                @blur="setTimeout(() => postVideoDropdownVisible = false, 150)" />
+                @blur="hideVideoDropdown" />
               <div v-if="postVideoDropdownVisible && postVideoResults.length"
                 style="position: absolute; top: 100%; left: 0; right: 0; z-index: 200;
                   background: #0f172a; border: 1px solid #1e293b; border-radius: 6px;

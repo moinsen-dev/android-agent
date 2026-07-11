@@ -1,4 +1,5 @@
 """Shared fixtures for API smoke tests."""
+
 import pytest
 from fastapi.testclient import TestClient
 

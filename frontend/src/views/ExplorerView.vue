@@ -43,7 +43,7 @@ async function loadDevices() {
   try {
     const resp = await api('/api/phone/devices')
     devices.value = resp.devices || resp || []
-    if (devices.value.length && !device.value) device.value = devices.value[0].serial
+    if (devices.value.length && !device.value) device.value = devices.value[0]!.serial
   } catch {}
 }
 

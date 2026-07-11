@@ -4,8 +4,8 @@ Shared test fixtures.
 Device tests require a connected Android phone (set DEVICE env var).
 API tests use FastAPI TestClient (no phone needed).
 """
+
 import os
-from pathlib import Path
 
 import pytest
 

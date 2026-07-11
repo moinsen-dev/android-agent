@@ -46,7 +46,7 @@ const rtcStatus = ref<Record<string, string>>({})
 
 function uuid(): string {
   return ([1e7] as any + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, (c: any) =>
-    (c ^ (crypto.getRandomValues(new Uint8Array(1))[0] & 15) >> c / 4).toString(16))
+    (c ^ ((crypto as any).getRandomValues(new Uint8Array(1))[0] & 15) >> c / 4).toString(16))
 }
 
 async function rtcFixPortal(serial: string) {
@@ -92,7 +92,7 @@ async function rtcStart(serial: string, _reconnectAttempt = 0) {
   pc.ontrack = (evt) => {
     rtcStatus.value[serial] = 'Streaming'
     const videoEl = document.getElementById(`rtc-video-${serial}`) as HTMLVideoElement
-    if (videoEl) {
+    if (videoEl && evt.streams[0]) {
       videoEl.srcObject = evt.streams[0]
       videoEl.play().catch(() => {})
     }
@@ -256,7 +256,7 @@ function videoMouseLeave(serial: string) { dragState.value[serial] = null }
 
 function videoTouchStart(serial: string, e: TouchEvent) {
   if (!e.touches.length) return; e.preventDefault()
-  const touch = e.touches[0], video = e.target as HTMLVideoElement, rect = video.getBoundingClientRect()
+  const touch = e.touches[0]!, video = e.target as HTMLVideoElement, rect = video.getBoundingClientRect()
   const sx = video.videoWidth / rect.width, sy = video.videoHeight / rect.height
   dragState.value[serial] = { x: Math.round((touch.clientX - rect.left) * sx), y: Math.round((touch.clientY - rect.top) * sy), t: Date.now() }
   dragMoved.value[serial] = false
@@ -264,7 +264,7 @@ function videoTouchStart(serial: string, e: TouchEvent) {
 function videoTouchMove(serial: string) { if (dragState.value[serial]) dragMoved.value[serial] = true }
 function videoTouchEnd(serial: string, e: TouchEvent) {
   const ds = dragState.value[serial]; if (!ds) return; e.preventDefault()
-  const touch = e.changedTouches[0], video = e.target as HTMLVideoElement, rect = video.getBoundingClientRect()
+  const touch = e.changedTouches[0]!, video = e.target as HTMLVideoElement, rect = video.getBoundingClientRect()
   const sx = video.videoWidth / rect.width, sy = video.videoHeight / rect.height
   const ex = Math.round((touch.clientX - rect.left) * sx), ey = Math.round((touch.clientY - rect.top) * sy)
   const sw = video.videoWidth, sh = video.videoHeight
@@ -309,11 +309,13 @@ function startBlackCheck(serial: string) {
     try {
       const c = document.createElement('canvas')
       c.width = 8; c.height = 8
-      c.getContext('2d')!.drawImage(video, 0, 0, 8, 8)
-      const data = c.getContext('2d')!.getImageData(0, 0, 8, 8).data
+      const ctx = c.getContext('2d')
+      if (!ctx) return
+      ctx.drawImage(video, 0, 0, 8, 8)
+      const data = ctx.getImageData(0, 0, 8, 8).data
       // Simple hash: sum of all pixel values
       let hash = 0
-      for (let i = 0; i < data.length; i += 4) hash += data[i] + data[i+1] + data[i+2]
+      for (let i = 0; i < data.length; i += 4) hash += Number(data[i]) + Number(data[i+1]) + Number(data[i+2])
       const hashStr = hash.toString()
 
       // Black screen check (first time only)
@@ -411,7 +413,7 @@ function startStream() {
     rtcStart(selectedDevice.value)
     // Auto-fallback: if RTC doesn't connect within 5s, switch to MJPEG
     setTimeout(() => {
-      if (streaming.value && singleStreamMode.value === 'rtc' && rtcStatus[selectedDevice.value] !== 'Streaming') {
+      if (streaming.value && singleStreamMode.value === 'rtc' && rtcStatus.value[selectedDevice.value] !== 'Streaming') {
         console.log('RTC timeout — falling back to MJPEG')
         singleStreamMode.value = 'mjpeg'
         singleMjpegUrl.value = `/api/phone/stream?device=${encodeURIComponent(selectedDevice.value)}&fps=5`
@@ -680,7 +682,10 @@ async function deleteConversation(cid: string) {
 function onProviderChange() {
   localStorage.setItem('agent_provider', chatProvider.value)
   const p = CHAT_PROVIDERS.value.find(p => p.id === chatProvider.value)
-  if (p?.models.length) { chatModel.value = p.models[0]; localStorage.setItem('agent_model', chatModel.value) }
+  if (p?.models.length) {
+    chatModel.value = p.models[0]!
+    localStorage.setItem('agent_model', chatModel.value)
+  }
   chatSessionId.value = '' // reset session on provider change
   if (chatProvider.value === 'ollama') fetchOllamaStatus()
 }

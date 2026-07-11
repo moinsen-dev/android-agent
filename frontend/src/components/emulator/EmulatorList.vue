@@ -20,7 +20,12 @@ const busy = ref<Set<string>>(new Set())
 async function act(name: string, event: 'start' | 'stop' | 'delete' | 'setup') {
   busy.value.add(name)
   try {
-    emit(event, name)
+    switch (event) {
+      case 'start': emit('start', name); break
+      case 'stop': emit('stop', name); break
+      case 'delete': emit('delete', name); break
+      case 'setup': emit('setup', name); break
+    }
   } finally {
     // Clear after a short delay so the poll can update status first
     setTimeout(() => busy.value.delete(name), 3000)

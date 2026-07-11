@@ -204,6 +204,7 @@ def search_apps(device: str, query: str) -> str:
     """Search installed apps by name. Case-insensitive. Returns matching apps with package names.
     Example: search_apps('tiktok') → [{"name": "TikTok", "package": "com.zhiliaoapp.musically"}]"""
     from gitd.services.agent_tools import execute_tool
+
     return execute_tool("search_apps", {"device": device, "query": query})
 
 
@@ -212,6 +213,7 @@ def list_apps(device: str) -> str:
     """List all installed apps with human-readable names and package names.
     Returns [{name, package}] sorted alphabetically. Use search_apps() for faster lookup."""
     from gitd.services.agent_tools import execute_tool
+
     return execute_tool("list_apps", {"device": device})
 
 
@@ -227,6 +229,7 @@ def get_phone_state(device: str) -> str:
     """Get current app, activity, keyboard state, and focused element.
     Quick way to check what app/screen the device is on without parsing full elements."""
     from gitd.services.device_context import get_phone_state as _get_state
+
     return json.dumps(_get_state(device), indent=2)
 
 
@@ -240,6 +243,7 @@ def get_screen_tree(device: str) -> str:
     Use this to understand screen layout and pick which element to tap.
     Much more readable than raw XML — prefer this over get_elements() for planning."""
     from gitd.services.device_context import get_screen_tree as _tree
+
     return _tree(device)
 
 
@@ -249,6 +253,7 @@ def get_screen_xml(device: str) -> str:
     Use get_screen_tree() instead for a readable summary.
     Use this only when you need exact attribute values or the full hierarchy."""
     from gitd.services.device_context import get_screen_xml as _xml
+
     return _xml(device)
 
 
@@ -259,6 +264,7 @@ def screenshot_annotated(device: str) -> str:
     Use this when you want to SEE the screen with elements visually labelled.
     Returns base64-encoded PNG."""
     from gitd.services.device_context import screenshot_annotated as _ss
+
     result = _ss(device)
     return result.get("image", "")
 
@@ -269,6 +275,7 @@ def screenshot_cropped(device: str, x1: int, y1: int, x2: int, y2: int) -> str:
     Coordinates are in device pixels. Use this to zoom in on a specific area
     (e.g., a form field, a notification, a chart). Returns base64-encoded JPEG."""
     from gitd.services.device_context import screenshot_cropped as _crop
+
     result = _crop(device, x1, y1, x2, y2)
     return result.get("image", "")
 
@@ -280,6 +287,7 @@ def ocr_screen(device: str) -> str:
     games, WebViews) where get_elements() returns no text.
     Returns JSON array of {text, conf, x, y, w, h} sorted top-to-bottom."""
     from gitd.services.device_context import ocr_screen as _ocr
+
     return json.dumps(_ocr(device), indent=2)
 
 
@@ -289,6 +297,7 @@ def ocr_region(device: str, x1: int, y1: int, x2: int, y2: int) -> str:
     More accurate than full-screen OCR for targeted text extraction.
     Returns JSON array of {text, conf, x, y, w, h} relative to the crop region."""
     from gitd.services.device_context import ocr_region as _ocr
+
     return json.dumps(_ocr(device, x1, y1, x2, y2), indent=2)
 
 
@@ -298,6 +307,7 @@ def classify_screen(device: str) -> str:
     settings, dialog, error, loading), keyboard state. No LLM needed — uses XML heuristics.
     Use this for quick state checks before deciding what action to take."""
     from gitd.services.device_context import classify_screen as _cls
+
     return json.dumps(_cls(device), indent=2)
 
 
@@ -307,6 +317,7 @@ def toggle_overlay(device: str, visible: bool = True) -> str:
     When on, interactive elements get visible numbered labels that match get_elements() indices.
     Useful for visual debugging or when sending screenshots to a vision model."""
     from gitd.services.device_context import toggle_overlay as _toggle
+
     ok = _toggle(device, visible)
     return f"Overlay {'enabled' if visible else 'disabled'}" if ok else "Failed — Portal not available"
 
@@ -315,6 +326,7 @@ def toggle_overlay(device: str, visible: bool = True) -> str:
 def clipboard_get(device: str) -> str:
     """Get the current clipboard text from the device."""
     from gitd.services.device_context import clipboard_get as _get
+
     return _get(device) or "(empty)"
 
 
@@ -322,13 +334,15 @@ def clipboard_get(device: str) -> str:
 def clipboard_set(device: str, text: str) -> str:
     """Set clipboard text on the device. Use with press_key(PASTE) to paste into fields."""
     from gitd.services.device_context import clipboard_set as _set
-    return f"Clipboard set" if _set(device, text) else "Failed"
+
+    return "Clipboard set" if _set(device, text) else "Failed"
 
 
 @mcp.tool()
 def get_notifications(device: str) -> str:
     """Get active notifications. Returns JSON array of {package, title, text}."""
     from gitd.services.device_context import get_notifications as _notif
+
     return json.dumps(_notif(device), indent=2)
 
 
@@ -336,18 +350,19 @@ def get_notifications(device: str) -> str:
 def open_notifications(device: str) -> str:
     """Pull down the notification shade."""
     from gitd.services.device_context import open_notifications as _open
+
     return "Notification shade opened" if _open(device) else "Failed"
 
 
 @mcp.tool()
-def launch_intent(device: str, action: str = "", data: str = "",
-                  package: str = "", extras: str = "{}") -> str:
+def launch_intent(device: str, action: str = "", data: str = "", package: str = "", extras: str = "{}") -> str:
     """Launch a full Android intent. More powerful than launch_app().
     Examples:
       Open a URL: action="android.intent.action.VIEW" data="https://google.com"
       Open Settings: package="com.android.settings"
       Share text: action="android.intent.action.SEND" extras='{"android.intent.extra.TEXT": "hello"}'"""
     from gitd.services.device_context import launch_intent as _intent
+
     parsed_extras = json.loads(extras) if extras and extras != "{}" else None
     return _intent(device, action=action, data=data, package=package, extras=parsed_extras)
 
@@ -359,6 +374,7 @@ def find_on_screen(device: str, text: str) -> str:
     Use this to check if a button, label, or message is visible.
     Returns JSON with {text, x, y, w, h, method} or null if not found."""
     from gitd.services.device_context import find_on_screen as _find
+
     result = _find(device, text)
     return json.dumps(result, indent=2) if result else "Not found"
 

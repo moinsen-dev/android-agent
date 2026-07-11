@@ -12,10 +12,10 @@ def test_providers_ollama_has_models():
 
 
 def test_parse_tool_calls_basic():
-    text = '''I'll take a screenshot.
+    text = """I'll take a screenshot.
 ```tool
 {"tool": "screenshot", "args": {"device": "emulator-5554"}}
-```'''
+```"""
     calls = _parse_tool_calls(text)
     assert len(calls) == 1
     assert calls[0]["tool"] == "screenshot"
@@ -23,14 +23,14 @@ def test_parse_tool_calls_basic():
 
 
 def test_parse_tool_calls_multiple():
-    text = '''Let me check the screen and tap.
+    text = """Let me check the screen and tap.
 ```tool
 {"tool": "get_screen_tree", "args": {"device": "emulator-5554"}}
 ```
 Now I'll tap.
 ```tool
 {"tool": "tap", "args": {"device": "emulator-5554", "x": 540, "y": 1200}}
-```'''
+```"""
     calls = _parse_tool_calls(text)
     assert len(calls) == 2
     assert calls[0]["tool"] == "get_screen_tree"
@@ -54,7 +54,7 @@ def test_parse_tool_calls_no_tools():
 
 
 def test_parse_tool_calls_invalid_json():
-    text = '```tool\n{not valid json}\n```'
+    text = "```tool\n{not valid json}\n```"
     calls = _parse_tool_calls(text)
     assert len(calls) == 0
 

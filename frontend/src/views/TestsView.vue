@@ -85,7 +85,7 @@ async function load() {
   devices.value = d.devices || d || []
   recordings.value = Array.isArray(r) ? r : r.recordings || []
   if (!selectedTest.value && testCatalog.value.length) {
-    selectedTest.value = testCatalog.value[0].file + '|'
+    selectedTest.value = testCatalog.value[0]!.file + '|'
   }
 }
 
@@ -167,7 +167,7 @@ function parseLogTimestamp(line: string): number | null {
   // Matches patterns like "2026-04-01 12:34:56" or "12:34:56" at the start of a log line
   const m = line.match(/(?:^\d{4}-\d{2}-\d{2}\s+)?(\d{2}):(\d{2}):(\d{2})/)
   if (!m) return null
-  return parseInt(m[1]) * 3600 + parseInt(m[2]) * 60 + parseInt(m[3])
+  return parseInt(m[1]!) * 3600 + parseInt(m[2]!) * 60 + parseInt(m[3]!)
 }
 
 function onVideoTimeUpdate() {

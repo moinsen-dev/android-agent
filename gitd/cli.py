@@ -270,8 +270,14 @@ def _install_to_skills_dir(source_dir: Path, name: str | None = None) -> bool:
         init_file.write_text(f'"""Skill: {skill_name}"""\n')
 
     # Count actions and workflows
-    action_count = sum(1 for f in (dest / "actions").glob("*.py") if f.name != "__init__.py") if (dest / "actions").exists() else 0
-    workflow_count = sum(1 for f in (dest / "workflows").glob("*.py") if f.name != "__init__.py") if (dest / "workflows").exists() else 0
+    action_count = (
+        sum(1 for f in (dest / "actions").glob("*.py") if f.name != "__init__.py") if (dest / "actions").exists() else 0
+    )
+    workflow_count = (
+        sum(1 for f in (dest / "workflows").glob("*.py") if f.name != "__init__.py")
+        if (dest / "workflows").exists()
+        else 0
+    )
     # Also count recorded workflows
     if (dest / "workflows").exists():
         workflow_count += sum(1 for _ in (dest / "workflows").glob("*.json"))
@@ -357,13 +363,15 @@ def cmd_list(args):
         if d.is_dir() and (d / "skill.yaml").exists() and not d.name.startswith("_"):
             try:
                 meta = yaml.safe_load((d / "skill.yaml").read_text()) or {}
-                skills.append({
-                    "dir": d.name,
-                    "name": meta.get("name", d.name),
-                    "version": meta.get("version", "0.0.0"),
-                    "app_package": meta.get("app_package", ""),
-                    "description": meta.get("description", ""),
-                })
+                skills.append(
+                    {
+                        "dir": d.name,
+                        "name": meta.get("name", d.name),
+                        "version": meta.get("version", "0.0.0"),
+                        "app_package": meta.get("app_package", ""),
+                        "description": meta.get("description", ""),
+                    }
+                )
             except Exception as e:
                 skills.append({"dir": d.name, "name": d.name, "error": str(e)})
 

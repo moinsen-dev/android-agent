@@ -40,7 +40,7 @@ async function load() {
     groups.value = await api('/api/tools')
     const devResp = await api('/api/phone/devices')
     devices.value = devResp.devices || devResp || []
-    if (devices.value.length && !testDevice.value) testDevice.value = devices.value[0].serial
+    if (devices.value.length && !testDevice.value) testDevice.value = devices.value[0]!.serial
   } finally { loading.value = false }
 }
 

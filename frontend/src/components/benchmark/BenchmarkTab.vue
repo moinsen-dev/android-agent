@@ -29,7 +29,9 @@ const currentModels = computed(() => PROVIDERS.find(p => p.id === runProvider.va
 
 function onProviderChange() {
   const p = PROVIDERS.find(p => p.id === runProvider.value)
-  if (p?.models.length) runModel.value = p.models[0]
+  if (p?.models.length) {
+    runModel.value = p.models[0]!
+  }
 }
 
 // Also try to fetch live Ollama models
@@ -41,7 +43,7 @@ async function fetchOllamaModels() {
       const ollama = providers.find((p: any) => p.id === 'ollama')
       if (ollama?.models?.length) {
         const idx = PROVIDERS.findIndex(p => p.id === 'ollama')
-        if (idx >= 0) PROVIDERS[idx].models = ollama.models
+        if (idx >= 0) PROVIDERS[idx]!.models = ollama.models
       }
     }
   } catch {}
