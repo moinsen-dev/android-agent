@@ -49,6 +49,37 @@ function uuid(): string {
     (c ^ ((crypto as any).getRandomValues(new Uint8Array(1))[0] & 15) >> c / 4).toString(16))
 }
 
+/* ── helper: map pointer coords from a CSS object-fit: contain element
+   back to the source image/video coordinates ─────────────────────────── */
+interface ObjectFitRect {
+  x: number
+  y: number
+  width: number
+  height: number
+  sx: number
+  sy: number
+}
+function getObjectFitRect(el: HTMLImageElement | HTMLVideoElement): ObjectFitRect {
+  const rect = el.getBoundingClientRect()
+  const srcW = el instanceof HTMLImageElement ? el.naturalWidth : el.videoWidth
+  const srcH = el instanceof HTMLImageElement ? el.naturalHeight : el.videoHeight
+  if (!srcW || !srcH) {
+    return { x: rect.left, y: rect.top, width: rect.width, height: rect.height, sx: 1, sy: 1 }
+  }
+  const srcRatio = srcW / srcH
+  const boxRatio = rect.width / rect.height
+  let width = rect.width
+  let height = rect.height
+  if (srcRatio > boxRatio) {
+    height = rect.width / srcRatio
+  } else {
+    width = rect.height * srcRatio
+  }
+  const x = rect.left + (rect.width - width) / 2
+  const y = rect.top + (rect.height - height) / 2
+  return { x, y, width, height, sx: srcW / width, sy: srcH / height }
+}
+
 async function rtcFixPortal(serial: string) {
   rtcStatus.value[serial] = 'Fixing Portal...'
   try {
@@ -222,9 +253,8 @@ const dragMoved = ref<Record<string, boolean>>({})
 function videoMouseDown(serial: string, e: MouseEvent) {
   e.preventDefault()
   const video = e.target as HTMLVideoElement
-  const rect = video.getBoundingClientRect()
-  const sx = video.videoWidth / rect.width, sy = video.videoHeight / rect.height
-  dragState.value[serial] = { x: Math.round((e.clientX - rect.left) * sx), y: Math.round((e.clientY - rect.top) * sy), t: Date.now() }
+  const r = getObjectFitRect(video)
+  dragState.value[serial] = { x: Math.round((e.clientX - r.x) * r.sx), y: Math.round((e.clientY - r.y) * r.sy), t: Date.now() }
   dragMoved.value[serial] = false
 }
 
@@ -237,9 +267,8 @@ function videoMouseUp(serial: string, e: MouseEvent) {
   if (!ds) return
   e.preventDefault()
   const video = e.target as HTMLVideoElement
-  const rect = video.getBoundingClientRect()
-  const sx = video.videoWidth / rect.width, sy = video.videoHeight / rect.height
-  const ex = Math.round((e.clientX - rect.left) * sx), ey = Math.round((e.clientY - rect.top) * sy)
+  const r = getObjectFitRect(video)
+  const ex = Math.round((e.clientX - r.x) * r.sx), ey = Math.round((e.clientY - r.y) * r.sy)
   const sw = video.videoWidth, sh = video.videoHeight
   const dx = ex - ds.x, dy = ey - ds.y, dist = Math.sqrt(dx * dx + dy * dy)
   if (!dragMoved.value[serial] || dist < 20) {
@@ -256,17 +285,15 @@ function videoMouseLeave(serial: string) { dragState.value[serial] = null }
 
 function videoTouchStart(serial: string, e: TouchEvent) {
   if (!e.touches.length) return; e.preventDefault()
-  const touch = e.touches[0]!, video = e.target as HTMLVideoElement, rect = video.getBoundingClientRect()
-  const sx = video.videoWidth / rect.width, sy = video.videoHeight / rect.height
-  dragState.value[serial] = { x: Math.round((touch.clientX - rect.left) * sx), y: Math.round((touch.clientY - rect.top) * sy), t: Date.now() }
+  const touch = e.touches[0]!, video = e.target as HTMLVideoElement, r = getObjectFitRect(video)
+  dragState.value[serial] = { x: Math.round((touch.clientX - r.x) * r.sx), y: Math.round((touch.clientY - r.y) * r.sy), t: Date.now() }
   dragMoved.value[serial] = false
 }
 function videoTouchMove(serial: string) { if (dragState.value[serial]) dragMoved.value[serial] = true }
 function videoTouchEnd(serial: string, e: TouchEvent) {
   const ds = dragState.value[serial]; if (!ds) return; e.preventDefault()
-  const touch = e.changedTouches[0]!, video = e.target as HTMLVideoElement, rect = video.getBoundingClientRect()
-  const sx = video.videoWidth / rect.width, sy = video.videoHeight / rect.height
-  const ex = Math.round((touch.clientX - rect.left) * sx), ey = Math.round((touch.clientY - rect.top) * sy)
+  const touch = e.changedTouches[0]!, video = e.target as HTMLVideoElement, r = getObjectFitRect(video)
+  const ex = Math.round((touch.clientX - r.x) * r.sx), ey = Math.round((touch.clientY - r.y) * r.sy)
   const sw = video.videoWidth, sh = video.videoHeight
   const dx = ex - ds.x, dy = ey - ds.y, dist = Math.sqrt(dx * dx + dy * dy)
   if (!dragMoved.value[serial] || dist < 20) {
@@ -433,17 +460,15 @@ function stopStream() {
 function mjpegMouseDown(serial: string, e: MouseEvent) {
   e.preventDefault()
   const img = e.target as HTMLImageElement
-  const rect = img.getBoundingClientRect()
-  const sx = img.naturalWidth / rect.width, sy = img.naturalHeight / rect.height
-  dragState.value[serial] = { x: Math.round((e.clientX - rect.left) * sx), y: Math.round((e.clientY - rect.top) * sy), t: Date.now() }
+  const r = getObjectFitRect(img)
+  dragState.value[serial] = { x: Math.round((e.clientX - r.x) * r.sx), y: Math.round((e.clientY - r.y) * r.sy), t: Date.now() }
   dragMoved.value[serial] = false
 }
 function mjpegMouseUp(serial: string, e: MouseEvent) {
   const ds = dragState.value[serial]; if (!ds) return; e.preventDefault()
   const img = e.target as HTMLImageElement
-  const rect = img.getBoundingClientRect()
-  const sx = img.naturalWidth / rect.width, sy = img.naturalHeight / rect.height
-  const ex = Math.round((e.clientX - rect.left) * sx), ey = Math.round((e.clientY - rect.top) * sy)
+  const r = getObjectFitRect(img)
+  const ex = Math.round((e.clientX - r.x) * r.sx), ey = Math.round((e.clientY - r.y) * r.sy)
   const sw = img.naturalWidth, sh = img.naturalHeight
   const dx = ex - ds.x, dy = ey - ds.y, dist = Math.sqrt(dx * dx + dy * dy)
   if (!dragMoved.value[serial] || dist < 20) {
@@ -1336,9 +1361,8 @@ onUnmounted(() => {
 }
 
 .stream-media {
+  width: 100%;
   height: 100%;
-  width: auto;
-  max-width: 100%;
   object-fit: contain;
   cursor: crosshair;
   touch-action: none;
@@ -1695,8 +1719,8 @@ onUnmounted(() => {
 }
 
 .multi-stream-media {
-  max-height: 100%;
-  max-width: 100%;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
   cursor: crosshair;
   touch-action: none;
