@@ -16,7 +16,6 @@ def browser_session():
 class TestWebContext:
     def test_create_session(self, browser_session):
         assert browser_session.sid
-        assert browser_session.page
 
     def test_navigate(self, browser_session):
         result = web_context.navigate(browser_session.sid, "https://example.com")
@@ -52,11 +51,10 @@ class TestWebContext:
         assert result["viewport"]["height"] == 844
 
     def test_tap_and_type(self, browser_session):
-        # Use a simple page with an input
         web_context.navigate(browser_session.sid, "data:text/html,<input id='q'/>")
         web_context.tap(browser_session.sid, 10, 10)
         web_context.type_text(browser_session.sid, "hello")
-        value = browser_session.page.eval_on_selector("#q", "el => el.value")
+        value = web_context.evaluate(browser_session.sid, "() => document.getElementById('q').value")
         assert value == "hello"
 
     def test_press_key(self, browser_session):
