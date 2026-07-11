@@ -180,6 +180,27 @@ def api_creator_chat(data: dict = Body({})):
             if not reply and proc.stderr:
                 reply = f"Error: {proc.stderr.strip()}"
 
+        elif backend == "deepseek":
+            from openai import OpenAI
+
+            client = OpenAI(
+                api_key=os.environ.get("DEEPSEEK_API_KEY", ""),
+                base_url=os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1"),
+            )
+            user_content = message
+            screenshot_b64 = context.get("screenshot_b64")
+            if screenshot_b64:
+                user_content = [
+                    {"type": "text", "text": message},
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{screenshot_b64}"}},
+                ]
+            resp = client.chat.completions.create(
+                model=model or "deepseek-chat",
+                messages=[{"role": "system", "content": system}, {"role": "user", "content": user_content}],
+                max_tokens=2048,
+            )
+            reply = resp.choices[0].message.content
+
         else:  # openrouter
             from openai import OpenAI
 
@@ -281,6 +302,27 @@ def api_creator_chat_stream(data: dict = Body({})):
                 )
                 stream = client.chat.completions.create(
                     model=model or "anthropic/claude-sonnet-4",
+                    messages=[{"role": "system", "content": system}, {"role": "user", "content": message}],
+                    max_tokens=2048,
+                    stream=True,
+                )
+                full = ""
+                for chunk in stream:
+                    if chunk.choices and chunk.choices[0].delta.content:
+                        token = chunk.choices[0].delta.content
+                        full += token
+                        yield f"data: {json.dumps({'token': token})}\n\n"
+                yield f"data: {json.dumps({'done': True, 'full': full})}\n\n"
+
+            elif backend == "deepseek":
+                from openai import OpenAI
+
+                client = OpenAI(
+                    api_key=os.environ.get("DEEPSEEK_API_KEY", ""),
+                    base_url=os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1"),
+                )
+                stream = client.chat.completions.create(
+                    model=model or "deepseek-chat",
                     messages=[{"role": "system", "content": system}, {"role": "user", "content": message}],
                     max_tokens=2048,
                     stream=True,

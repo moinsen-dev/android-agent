@@ -25,9 +25,13 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     anthropic_api_key: str = ""
     openrouter_api_key: str = ""
+    deepseek_api_key: str = ""
 
     # ── Ollama ──────────────────────────────────────────────────────────────
     ollama_base_url: str = "http://localhost:11434"
+
+    # ── DeepSeek ─────────────────────────────────────────────────────────────
+    deepseek_base_url: str = "https://api.deepseek.com/v1"
 
     model_config = {
         "env_file": ".env",

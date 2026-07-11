@@ -26,12 +26,14 @@ let streamTimer: number | null = null
 const BACKENDS = [
   { id: 'claude-code', label: 'Claude Code (free)' },
   { id: 'openrouter', label: 'OpenRouter' },
+  { id: 'deepseek', label: 'DeepSeek' },
   { id: 'claude', label: 'Claude API' },
   { id: 'ollama', label: 'Ollama (local)' },
 ]
 
 const MODELS: Record<string, string[]> = {
   openrouter: ['anthropic/claude-sonnet-4', 'anthropic/claude-opus-4', 'google/gemini-2.5-pro', 'meta-llama/llama-3-70b'],
+  deepseek: ['deepseek-chat', 'deepseek-reasoner'],
   claude: ['claude-sonnet-4-20250514', 'claude-opus-4-20250514', 'claude-haiku-4-20251001'],
   ollama: [],
   'claude-code': ['sonnet', 'opus', 'haiku'],

@@ -60,6 +60,7 @@ PROVIDERS = {
     "claude-code": {"label": "Claude Code (free)", "models": ["sonnet", "opus", "haiku"]},
     "anthropic": {"label": "Claude API", "models": ["claude-sonnet-4-20250514", "claude-opus-4-20250514"]},
     "openrouter": {"label": "OpenRouter", "models": ["anthropic/claude-sonnet-4", "google/gemini-2.5-pro"]},
+    "deepseek": {"label": "DeepSeek", "models": ["deepseek-chat", "deepseek-reasoner"]},
     "ollama": {
         "label": "Ollama (local)",
         "models": [
@@ -340,6 +341,8 @@ def chat_turn(session: ChatSession, user_message: str):
         yield from chat_claude_code(session, user_message)
     elif provider == "openrouter":
         yield from _chat_openrouter(session, user_message)
+    elif provider == "deepseek":
+        yield from _chat_deepseek(session, user_message)
     elif provider == "ollama":
         yield from _chat_ollama(session, user_message)
     else:
@@ -640,6 +643,82 @@ def _chat_openrouter(session: ChatSession, user_message: str):
     try:
         resp = client.chat.completions.create(
             model=session.model or "anthropic/claude-sonnet-4",
+            messages=messages,
+            tools=oai_tools,
+            max_tokens=4096,
+        )
+        msg = resp.choices[0].message
+
+        if msg.content:
+            session.messages.append(ChatMessage(role="assistant", content=msg.content))
+            yield {"type": "text", "content": msg.content}
+
+        if msg.tool_calls:
+            for tc in msg.tool_calls:
+                tool_name = tc.function.name
+                tool_args = json.loads(tc.function.arguments)
+                tool_args.setdefault("device", session.device)
+
+                session.messages.append(
+                    ChatMessage(role="tool_call", tool_name=tool_name, tool_args=tool_args, content="")
+                )
+                yield {"type": "tool_call", "name": tool_name, "args": tool_args}
+
+                result = execute_tool(tool_name, tool_args)
+                session.messages.append(ChatMessage(role="tool_result", content=result, tool_name=tool_name))
+                yield {"type": "tool_result", "name": tool_name, "result": result[:500]}
+
+    except Exception as e:
+        yield {"type": "error", "content": str(e)}
+
+    yield {"type": "done"}
+
+
+# ── DeepSeek ─────────────────────────────────────────────────────────────────
+
+
+def _chat_deepseek(session: ChatSession, user_message: str):
+    """Use DeepSeek API with OpenAI-compatible tool calling.
+
+    deepseek-chat (V3) supports native function calling.
+    deepseek-reasoner (R1) is a reasoning model and may ignore tool calls;
+    use it only for analytical tasks, not for device control.
+    """
+    from openai import OpenAI
+
+    session.messages.append(ChatMessage(role="user", content=user_message))
+
+    client = OpenAI(
+        api_key=os.environ.get("DEEPSEEK_API_KEY", ""),
+        base_url=os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1"),
+    )
+
+    # Convert tools to OpenAI format
+    oai_tools = [
+        {
+            "type": "function",
+            "function": {"name": t["name"], "description": t["description"], "parameters": t["input_schema"]},
+        }
+        for t in TOOLS
+    ]
+
+    # Build messages
+    context = ""
+    try:
+        tree = get_screen_tree(session.device)
+        state = get_phone_state(session.device)
+        context = f"[Screen]\n{tree[:1500]}\n[App: {state.get('currentApp', '?')}]\n\n"
+    except Exception:
+        pass
+
+    messages = [
+        {"role": "system", "content": ANTHROPIC_SYSTEM},
+        {"role": "user", "content": f"{context}Device: {session.device}\n\n{user_message}"},
+    ]
+
+    try:
+        resp = client.chat.completions.create(
+            model=session.model or "deepseek-chat",
             messages=messages,
             tools=oai_tools,
             max_tokens=4096,

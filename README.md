@@ -96,6 +96,7 @@ Copy `.env.example` to `.env` (if provided) or create a `.env` file in the proje
 | `OPENAI_API_KEY` | LLM features (Skill Creator, Agent Chat) |
 | `ANTHROPIC_API_KEY` | Alternative LLM provider |
 | `OPENROUTER_API_KEY` | OpenRouter LLM provider |
+| `DEEPSEEK_API_KEY` | DeepSeek LLM provider (deepseek-chat, deepseek-reasoner) |
 | `DEFAULT_DEVICE` | ADB serial (auto-detected if empty) |
 
 **No API keys needed for local models:** Select Ollama in the Phone Agent tab — runs entirely on your machine with [Ollama](https://ollama.com). Install, pull a model, go:
@@ -105,6 +106,16 @@ brew install ollama       # or curl -fsSL https://ollama.com/install.sh | sh
 ollama serve &
 ollama pull llama3.2:3b   # 2GB, fast, good tool-use
 ```
+
+**DeepSeek:** Select the `deepseek` provider in the dashboard and set your API key:
+
+```bash
+# Get a key at https://platform.deepseek.com/
+DEEPSEEK_API_KEY=sk-...
+```
+
+- `deepseek-chat` — V3 model, supports tool use, good for Agent Chat and Skill Creator.
+- `deepseek-reasoner` — R1 reasoning model, great for analysis but does not reliably call tools; avoid for live device control.
 
 ---
 
@@ -313,7 +324,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide.
 | Charts | Chart.js 4, Plotly.js |
 | Device Control | ADB (Android Debug Bridge) |
 | Streaming | MJPEG, WebRTC (via Ghost Portal companion app) |
-| LLM | OpenAI, Anthropic (optional) |
+| LLM | OpenAI, Anthropic, OpenRouter, DeepSeek, Ollama (optional) |
 | Linting | Ruff |
 | Testing | pytest, Playwright (optional) |
 
