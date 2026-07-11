@@ -3,20 +3,32 @@
 
 set dotenv-load
 
-python := "python3"
-pip := "pip3"
-npm := "npm"
 venv_dir := ".venv"
-venv_python := venv_dir / "bin" / "python"
-venv_pip := venv_dir / "bin" / "pip"
+system_python := "python3"
+system_pip := "pip3"
+python := venv_dir / "bin" / "python"
+pip := venv_dir / "bin" / "pip"
+npm := "npm"
 
 export PATH := venv_dir / "bin" + ":" + env_var_or_default("PATH", "")
 
 # ── High-level workflows ───────────────────────────────────────────────────
 
 # Install everything: Python deps, frontend deps, and a starter .env
-install: python-deps frontend-deps env-file
-	@echo "Install complete. Run 'just dev' to start."
+install: python-deps frontend-deps env-file cli-wrapper
+	@echo ""
+	@echo "Install complete."
+	@echo ""
+	@echo "Run the app:            just dev"
+	@echo "Run CLI commands:       just cli <command>"
+	@echo "Examples:"
+	@echo "  just cli skill list"
+	@echo "  just cli skill search tiktok"
+	@echo "  just cli skill install tiktok"
+	@echo ""
+	@echo "Or activate the venv manually:"
+	@echo "  source .venv/bin/activate"
+	@echo "  android-agent skill list"
 
 # Update repo and dependencies
 update:
@@ -50,8 +62,8 @@ frontend:
 
 # Create venv and install Python dependencies
 python-deps:
-	@test -d {{venv_dir}} || {{python}} -m venv {{venv_dir}}
-	{{venv_pip}} install -e ".[all]"
+	@test -d {{venv_dir}} || {{system_python}} -m venv {{venv_dir}}
+	{{pip}} install -e ".[all]"
 
 # ── Frontend ───────────────────────────────────────────────────────────────
 
@@ -82,16 +94,34 @@ db-migrate:
 db-revision msg:
 	alembic revision --autogenerate -m "{{msg}}"
 
+# ── CLI ────────────────────────────────────────────────────────────────────
+
+# Run the android-agent CLI inside the managed venv
+cli *args:
+	{{python}} -m gitd.cli {{args}}
+
+# Create a project-root wrapper so `./android-agent` works without activating the venv
+cli-wrapper:
+	#!/usr/bin/env bash
+	set -euo pipefail
+	cat > android-agent <<'EOF'
+	#!/usr/bin/env bash
+	set -euo pipefail
+	SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+	exec "$SCRIPT_DIR/.venv/bin/python" -m gitd.cli "$@"
+	EOF
+	chmod +x android-agent
+
 # ── Skills ─────────────────────────────────────────────────────────────────
 
 skill-search query:
-	{{python}} -m gitd.cli skill search {{query}}
+	just cli skill search {{query}}
 
 skill-install name:
-	{{python}} -m gitd.cli skill install {{name}}
+	just cli skill install {{name}}
 
 skill-list:
-	{{python}} -m gitd.cli skill list
+	just cli skill list
 
 # ── MCP ────────────────────────────────────────────────────────────────────
 
