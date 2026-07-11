@@ -96,8 +96,8 @@ async function restartServer() {
 </script>
 
 <template>
-  <div class="min-h-screen" style="background: var(--bg-base)">
-    <div class="px-6 pt-4 pb-0">
+  <div class="h-screen flex flex-col" style="background: var(--bg-base)">
+    <div class="px-6 pt-4 pb-0 flex-shrink-0">
       <div class="flex items-center justify-between mb-4">
         <div style="display:flex;align-items:center;gap:0.6rem">
           <div style="display:flex;flex-direction:column;align-items:center;min-width:48px">
@@ -133,7 +133,7 @@ async function restartServer() {
       </div>
     </div>
 
-    <div class="px-6 py-4">
+    <div class="px-6 py-4 flex-1 min-h-0 overflow-hidden flex flex-col">
       <PhoneAdminView v-if="activeTab === 'phone'" />
       <WebAgentView v-else-if="activeTab === 'web'" />
       <SchedulerView v-else-if="activeTab === 'scheduler'" />

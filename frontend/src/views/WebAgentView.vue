@@ -258,13 +258,15 @@ onMounted(() => {
 .web-agent {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 120px);
+  height: 100%;
   gap: 12px;
+  min-height: 0;
 }
 .wa-header {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  flex-shrink: 0;
 }
 .wa-row {
   display: flex;
@@ -322,9 +324,11 @@ onMounted(() => {
   border: 1px solid var(--border, #1e293b);
   border-radius: 10px;
   overflow: hidden;
+  min-height: 0;
 }
 .wa-messages {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 12px;
   display: flex;
@@ -413,9 +417,11 @@ onMounted(() => {
 .wa-preview {
   min-height: 0;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 .wa-no-preview {
-  height: 100%;
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
