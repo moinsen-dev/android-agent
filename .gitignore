@@ -46,6 +46,8 @@ site/node_modules/
 site/dist/
 site/.astro/
 .astro/
+build/
+frontend/dist/
 
 # Portal build artifacts (source is tracked)
 portal/.gradle/

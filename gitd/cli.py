@@ -19,7 +19,30 @@ REGISTRY_URL = "https://api.github.com/repos/ghost-in-the-droid/android-agent/co
 COMMUNITY_URL = "https://api.github.com/repos/ghost-in-the-droid/android-agent/contents/registry/community.json"
 REGISTRY_RAW_BASE = "https://raw.githubusercontent.com/ghost-in-the-droid/android-agent/main/registry"
 _GITHUB_HEADERS = {"Accept": "application/vnd.github.raw"}
-SKILLS_DIR = Path(__file__).resolve().parent / "skills"
+
+
+def _resolve_skills_dir() -> Path:
+    """Find the skills directory.
+
+    Order of precedence:
+      1. GITD_SKILLS_DIR environment variable
+      2. A gitd/skills directory found by walking up from the current working dir
+      3. The skills directory next to this module (editable / tool install fallback)
+    """
+    env_dir = os.environ.get("GITD_SKILLS_DIR")
+    if env_dir:
+        return Path(env_dir).expanduser().resolve()
+
+    cwd = Path.cwd().resolve()
+    for path in [cwd, *cwd.parents]:
+        candidate = path / "gitd" / "skills"
+        if candidate.is_dir():
+            return candidate
+
+    return Path(__file__).resolve().parent / "skills"
+
+
+SKILLS_DIR = _resolve_skills_dir()
 
 # Required fields in skill.yaml
 REQUIRED_FIELDS = ["name", "display_name", "description", "version", "app_package", "author"]

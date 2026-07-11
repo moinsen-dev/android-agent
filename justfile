@@ -112,6 +112,16 @@ cli-wrapper:
 	EOF
 	chmod +x android-agent
 
+# ── Global uv tool install ─────────────────────────────────────────────────
+
+# Install android-agent as a global uv tool (available everywhere as `android-agent`)
+tool-install:
+	uv tool install --reinstall ".[all]"
+
+# Uninstall the global uv tool
+tool-uninstall:
+	uv tool uninstall ghost-in-the-droid
+
 # ── Skills ─────────────────────────────────────────────────────────────────
 
 skill-search query:
