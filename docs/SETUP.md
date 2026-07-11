@@ -65,6 +65,9 @@ cd ghost-in-the-droid
 # 2. Install Python package (includes all dependencies)
 pip install -e ".[all]"
 
+# 2b. Install Playwright Chromium browser (required for Web Agent)
+python3 -m playwright install chromium
+
 # 3. Copy environment config
 cp .env.example .env
 # Edit .env — add your device serial and any API keys (optional for core ADB)
@@ -132,6 +135,25 @@ ollama pull llama3.2:3b   # 2GB, fast, good tool-use
 ```
 
 In the dashboard: Phone Agent tab > Provider: Ollama > pick a model > chat. The agent can see the screen, tap elements, type, navigate — multi-turn with tool execution.
+
+---
+
+## Web Agent (Browser Automation)
+
+Test websites and web apps with a headless Chromium browser directly from the dashboard.
+
+1. Make sure Playwright Chromium is installed:
+   ```bash
+   python3 -m playwright install chromium
+   ```
+2. Start the backend and frontend.
+3. Open the **🌐 Web Agent** tab.
+4. Enter a URL (e.g. `https://example.com`) and click **Open**.
+5. Pick a provider (DeepSeek, Anthropic, OpenRouter, Ollama) and start chatting with the agent.
+
+The browser preview is resizable. Use the viewport presets (Mobile S/L, Tablet, Desktop) to test responsive layouts. The agent can navigate, click, type, scroll, and resize the viewport.
+
+**Note:** Claude Code provider is not supported for web sessions yet because it relies on the Android-specific MCP server.
 
 ---
 

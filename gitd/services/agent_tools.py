@@ -7,6 +7,7 @@ Tool schemas are in Anthropic's tool format and auto-converted for other provide
 import json
 
 from gitd.services import device_context as ctx
+from gitd.services import web_context
 
 # ── Tool registry ────────────────────────────────────────────────────────────
 
@@ -251,12 +252,38 @@ TOOLS = [
             "required": ["seconds"],
         },
     },
+    # Web browser
+    {
+        "name": "navigate",
+        "description": "Navigate the web browser to a URL. Use this to open websites during web automation.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"device": {"type": "string"}, "url": {"type": "string"}},
+            "required": ["device", "url"],
+        },
+    },
+    {
+        "name": "set_viewport",
+        "description": "Resize the web browser viewport. Useful for responsive/mobile testing.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "device": {"type": "string"},
+                "width": {"type": "integer"},
+                "height": {"type": "integer"},
+            },
+            "required": ["device", "width", "height"],
+        },
+    },
 ]
 
 
 # ── Tool execution ───────────────────────────────────────────────────────────
 
-_UI_ACTION_TOOLS = {"tap", "tap_element", "swipe", "type_text", "press_key", "long_press", "launch_app"}
+_UI_ACTION_TOOLS = {
+    "tap", "tap_element", "swipe", "type_text", "press_key", "long_press", "launch_app",
+    "navigate", "set_viewport",
+}
 
 
 def execute_tool(name: str, args: dict) -> str:
@@ -269,7 +296,11 @@ def execute_tool(name: str, args: dict) -> str:
             import time as _t
 
             _t.sleep(0.5)
-            tree = ctx.get_screen_tree(args["device"])
+            device = args["device"]
+            if device.startswith("web:"):
+                tree = web_context.get_screen_tree(device[4:])
+            else:
+                tree = ctx.get_screen_tree(device)
             if tree and tree != "(empty screen)":
                 result += f"\n\n[Screen after action]\n{tree}"
         except Exception:
@@ -285,6 +316,48 @@ def _execute_tool_inner(name: str, args: dict) -> str:
 
     device = args.get("device", "")
 
+    # ── Web browser dispatch ─────────────────────────────────────────────────
+    if device.startswith("web:"):
+        sid = device[4:]
+        try:
+            if name == "screenshot":
+                r = web_context.screenshot(sid)
+                return json.dumps(
+                    {"image": r["image"][:100] + "...(truncated)", "width": r["width"], "height": r["height"]}
+                )
+            elif name == "get_screen_tree":
+                return web_context.get_screen_tree(sid)
+            elif name == "get_elements":
+                return json.dumps(web_context.get_interactive_elements(sid), indent=2)
+            elif name == "tap":
+                web_context.tap(sid, args["x"], args["y"])
+                return f"Clicked ({args['x']}, {args['y']})"
+            elif name == "tap_element":
+                r = web_context.tap_element(sid, args["idx"])
+                if r.get("ok"):
+                    return f"Clicked element #{args['idx']}"
+                return f"Error: {r.get('error', 'unknown')}"
+            elif name == "type_text":
+                web_context.type_text(sid, args["text"])
+                return f"Typed: {args['text']}"
+            elif name == "press_key":
+                web_context.press_key(sid, args["key"])
+                return f"Pressed {args['key']}"
+            elif name == "navigate":
+                r = web_context.navigate(sid, args["url"])
+                return f"Navigated to {r['url']}"
+            elif name == "set_viewport":
+                r = web_context.set_viewport(sid, args["width"], args["height"])
+                return f"Viewport set to {r['viewport']['width']}x{r['viewport']['height']}"
+            elif name == "wait":
+                time.sleep(args.get("seconds", 2))
+                return f"Waited {args.get('seconds', 2)}s"
+            else:
+                return f"Tool '{name}' is not available for web sessions"
+        except Exception as e:
+            return f"Error: {e}"
+
+    # ── Android dispatch (existing) ──────────────────────────────────────────
     try:
         if name == "screenshot":
             r = ctx.screenshot(device)
@@ -480,7 +553,10 @@ def _execute_tool_inner(name: str, args: dict) -> str:
 def get_screenshot_b64(device: str) -> str | None:
     """Get raw base64 screenshot for vision context injection."""
     try:
-        r = ctx.screenshot(device)
+        if device.startswith("web:"):
+            r = web_context.screenshot(device[4:])
+        else:
+            r = ctx.screenshot(device)
         return r.get("image")
     except Exception:
         return None

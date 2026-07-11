@@ -43,8 +43,9 @@ Issues = "https://github.com/ghost-in-the-droid/android-agent/issues"
 llm = ["anthropic>=0.30"]
 analytics = ["google-analytics-data>=0.18"]
 ocr = ["rapidocr-onnxruntime>=1.2"]
-test = ["playwright>=1.40", "pytest>=7.0"]
-all = ["ghost-in-the-droid[llm,analytics,ocr,test]"]
+web = ["playwright>=1.40"]
+test = ["pytest>=7.0", "playwright>=1.40"]
+all = ["ghost-in-the-droid[llm,analytics,ocr,web,test]"]
 
 [project.scripts]
 android-agent = "gitd.cli:main"

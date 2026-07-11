@@ -16,6 +16,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
+from gitd.services import web_context
 from gitd.services.agent_tools import TOOLS, execute_tool, get_screenshot_b64
 from gitd.services.device_context import get_phone_state, get_screen_tree
 
@@ -53,6 +54,90 @@ Guidelines:
 - Use element indices from the tree for precise tapping (tap_element)
 - After performing actions, use get_screen_tree to verify the result
 - Keep responses concise — show what you did and the result"""
+
+WEB_SYSTEM = """You are a web automation agent controlling a headless Chromium browser via Playwright.
+
+You can see the page (via screenshots and DOM tree), interact with it (click, type, scroll),
+navigate to URLs, and resize the viewport for responsive testing.
+
+## Available tools:
+{tool_list}
+
+## How to use tools:
+To call a tool, output a JSON block like this:
+```tool
+{{"tool": "tool_name", "args": {{"param": "value"}}}}
+```
+
+You can call multiple tools in sequence. After each tool call, I'll show you the result.
+
+## Guidelines:
+- Always use get_screen_tree first to understand the page structure
+- Use element indices from the tree for precise clicking (tap_element)
+- Use navigate to open URLs
+- Use set_viewport to test responsive layouts (e.g. 390x844 for mobile, 1280x720 for desktop)
+- After actions, verify results with get_screen_tree
+- Keep responses concise"""
+
+WEB_ANTHROPIC_SYSTEM = """You are a web automation agent controlling a headless Chromium browser via Playwright.
+
+You can see the page (via screenshots and DOM tree), interact with it (click, type, scroll),
+navigate to URLs, and resize the viewport for responsive testing.
+
+Guidelines:
+- Always use get_screen_tree first to understand the page structure before clicking
+- Use element indices from the tree for precise clicking (tap_element)
+- Use navigate to open URLs and set_viewport for responsive testing
+- After performing actions, use get_screen_tree to verify the result
+- Keep responses concise — show what you did and the result"""
+
+
+def _is_web_session(device: str) -> bool:
+    return device.startswith("web:")
+
+
+def _web_sid(device: str) -> str:
+    return device[4:]
+
+
+def _get_screen_context(device: str) -> str:
+    """Build a screen/page context string for the given device."""
+    if _is_web_session(device):
+        sid = _web_sid(device)
+        try:
+            tree = web_context.get_screen_tree(sid)
+            url = web_context.get_url(sid)
+            title = web_context.get_title(sid)
+            if tree and tree != "(empty page)":
+                return f"[Current page]\nURL: {url}\nTitle: {title}\n{tree[:1500]}"
+            return f"[Current page]\nURL: {url}\nTitle: {title}"
+        except Exception:
+            return ""
+    else:
+        try:
+            tree = get_screen_tree(device)
+            state = get_phone_state(device)
+            parts = []
+            if tree and tree != "(empty screen)":
+                parts.append(f"[Current screen]\n{tree[:1500]}")
+            if state:
+                parts.append(f"[App: {state.get('currentApp', '?')} ({state.get('packageName', '?')})]")
+            return "\n".join(parts)
+        except Exception:
+            return ""
+
+
+def _system_prompt_for(provider: str, device: str) -> str:
+    """Return the correct system prompt for Android or web sessions."""
+    if _is_web_session(device):
+        if provider == "anthropic":
+            return WEB_ANTHROPIC_SYSTEM
+        tool_list = "\n".join(f"- {t['name']}: {t['description']}" for t in TOOLS)
+        return WEB_SYSTEM.replace("{tool_list}", tool_list)
+    if provider == "anthropic":
+        return ANTHROPIC_SYSTEM
+    tool_list = "\n".join(f"- {t['name']}: {t['description']}" for t in TOOLS)
+    return DEFAULT_SYSTEM.replace("{tool_list}", tool_list)
 
 MAX_TURNS = 15
 
@@ -356,19 +441,14 @@ def _chat_claude_code(session: ChatSession, user_message: str):
     """Use claude CLI with MCP android-agent tools — streams output line-by-line."""
     session.messages.append(ChatMessage(role="user", content=user_message))
 
+    if _is_web_session(session.device):
+        yield {"type": "error", "content": "Claude Code provider does not support web sessions yet. Use anthropic, openrouter, deepseek, or ollama."}
+        yield {"type": "done"}
+        return
+
     # Build context
     yield {"type": "activity", "content": "📱 Reading screen..."}
-    context_parts = []
-    try:
-        tree = get_screen_tree(session.device)
-        if tree and tree != "(empty screen)":
-            context_parts.append(f"[Current screen]\n{tree[:1500]}")
-        state = get_phone_state(session.device)
-        if state:
-            context_parts.append(f"[App: {state.get('currentApp', '?')} ({state.get('packageName', '?')})]")
-    except Exception:
-        pass
-    context = "\n".join(context_parts)
+    context = _get_screen_context(session.device)
 
     prompt = f"""You are controlling an Android phone (serial: {session.device}).
 {context}
@@ -550,7 +630,7 @@ def _chat_anthropic(session: ChatSession, user_message: str):
             resp = client.messages.create(
                 model=session.model,
                 max_tokens=4096,
-                system=ANTHROPIC_SYSTEM,
+                system=_system_prompt_for(session.provider, session.device),
                 messages=session.api_messages,
                 tools=TOOLS,
             )
@@ -627,17 +707,11 @@ def _chat_openrouter(session: ChatSession, user_message: str):
     ]
 
     # Build messages with current screen context
-    context = ""
-    try:
-        tree = get_screen_tree(session.device)
-        state = get_phone_state(session.device)
-        context = f"[Screen]\n{tree[:1500]}\n[App: {state.get('currentApp', '?')}]\n\n"
-    except Exception:
-        pass
+    context = _get_screen_context(session.device)
 
     messages = [
-        {"role": "system", "content": ANTHROPIC_SYSTEM},
-        {"role": "user", "content": f"{context}Device: {session.device}\n\n{user_message}"},
+        {"role": "system", "content": _system_prompt_for(session.provider, session.device)},
+        {"role": "user", "content": f"{context}\n\nDevice: {session.device}\n\n{user_message}"},
     ]
 
     for turn in range(MAX_TURNS):
@@ -738,17 +812,11 @@ def _chat_deepseek(session: ChatSession, user_message: str):
     ]
 
     # Build messages with current screen context
-    context = ""
-    try:
-        tree = get_screen_tree(session.device)
-        state = get_phone_state(session.device)
-        context = f"[Screen]\n{tree[:1500]}\n[App: {state.get('currentApp', '?')}]\n\n"
-    except Exception:
-        pass
+    context = _get_screen_context(session.device)
 
     messages = [
-        {"role": "system", "content": ANTHROPIC_SYSTEM},
-        {"role": "user", "content": f"{context}Device: {session.device}\n\n{user_message}"},
+        {"role": "system", "content": _system_prompt_for(session.provider, session.device)},
+        {"role": "user", "content": f"{context}\n\nDevice: {session.device}\n\n{user_message}"},
     ]
 
     for turn in range(MAX_TURNS):
@@ -860,24 +928,14 @@ def _chat_ollama(session: ChatSession, user_message: str):
     session.messages.append(ChatMessage(role="user", content=user_message))
 
     # Build screen context
-    context = ""
-    try:
-        tree = get_screen_tree(session.device)
-        state = get_phone_state(session.device)
-        context = f"[Screen]\n{tree[:1500]}\n[App: {state.get('currentApp', '?')}]\n\n"
-    except Exception:
-        pass
+    context = _get_screen_context(session.device)
 
-    # Build tool list with param names so the LLM knows what args to send
-    tool_list = "\n".join(
-        f"- {t['name']}: {t['description']}  params: {list(t.get('input_schema', {}).get('properties', {}).keys())}"
-        for t in TOOLS
-    )
-    system = DEFAULT_SYSTEM.replace("{tool_list}", tool_list)
+    # Build system prompt (Android or web)
+    system = _system_prompt_for(session.provider, session.device)
 
     messages = [
         {"role": "system", "content": system},
-        {"role": "user", "content": f"{context}Device: {session.device}\n\n{user_message}"},
+        {"role": "user", "content": f"{context}\n\nDevice: {session.device}\n\n{user_message}"},
     ]
 
     model = session.model or "llama3.2:3b"
@@ -961,20 +1019,9 @@ def _build_vision_content(session: ChatSession, text: str) -> list:
     """Build user content with screenshot for vision-capable providers."""
     content = []
     if session.auto_screenshot and session.device:
-        try:
-            tree = get_screen_tree(session.device)
-            if tree and tree != "(empty screen)":
-                content.append({"type": "text", "text": f"[Current screen]\n{tree[:2000]}"})
-        except Exception:
-            pass
-        try:
-            state = get_phone_state(session.device)
-            if state:
-                content.append(
-                    {"type": "text", "text": f"[App: {state.get('currentApp', '')} ({state.get('packageName', '')})]"}
-                )
-        except Exception:
-            pass
+        context = _get_screen_context(session.device)
+        if context:
+            content.append({"type": "text", "text": context[:2000]})
         try:
             img = get_screenshot_b64(session.device)
             if img:
@@ -982,4 +1029,5 @@ def _build_vision_content(session: ChatSession, text: str) -> list:
         except Exception:
             pass
     content.append({"type": "text", "text": text})
+    return content
     return content

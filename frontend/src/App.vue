@@ -11,8 +11,11 @@ import ToolsHubView from '@/views/ToolsHubView.vue'
 import EmulatorTab from '@/components/emulator/EmulatorTab.vue'
 import BenchmarkTab from '@/components/benchmark/BenchmarkTab.vue'
 
+import WebAgentView from '@/views/WebAgentView.vue'
+
 const coreTabs = [
   { id: 'phone', label: '👻 Phone Agent' },
+  { id: 'web', label: '🌐 Web Agent' },
   { id: 'scheduler', label: '⏰ Scheduler' },
   { id: 'skills', label: '🧩 Skill Hub' },
   { id: 'creator', label: '🛠️ Skill Creator' },
@@ -132,6 +135,7 @@ async function restartServer() {
 
     <div class="px-6 py-4">
       <PhoneAdminView v-if="activeTab === 'phone'" />
+      <WebAgentView v-else-if="activeTab === 'web'" />
       <SchedulerView v-else-if="activeTab === 'scheduler'" />
       <SkillHubView v-else-if="activeTab === 'skills'" />
       <SkillCreatorView v-else-if="activeTab === 'creator'" />

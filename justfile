@@ -34,6 +34,7 @@ install: python-deps frontend-deps env-file cli-wrapper
 update:
 	git pull
 	{{pip}} install -e ".[all]" --upgrade
+	{{python}} -m playwright install chromium
 	cd frontend && {{npm}} install
 
 # Start backend + frontend in parallel (Ctrl+C stops both)
@@ -64,6 +65,13 @@ frontend:
 python-deps:
 	@test -d {{venv_dir}} || {{system_python}} -m venv {{venv_dir}}
 	{{pip}} install -e ".[all]"
+	{{python}} -m playwright install chromium
+
+# Install only web dependencies + Playwright browser
+web-deps:
+	@test -d {{venv_dir}} || {{system_python}} -m venv {{venv_dir}}
+	{{pip}} install -e ".[web]"
+	{{python}} -m playwright install chromium
 
 # ── Frontend ───────────────────────────────────────────────────────────────
 
