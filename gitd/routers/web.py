@@ -156,6 +156,30 @@ def web_key(data: dict = Body({})):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/scroll", summary="Scroll Web Page")
+def web_scroll(data: dict = Body({})):
+    """Scroll the web page. Accepts either deltas (dx, dy) or drag coordinates (x1,y1,x2,y2)."""
+    sid = data.get("sid", "")
+    if not sid:
+        raise HTTPException(status_code=400, detail="sid required")
+    try:
+        if "dx" in data or "dy" in data:
+            result = web_context.scroll_wheel(sid, int(data.get("dx", 0)), int(data.get("dy", 0)))
+        else:
+            result = web_context.scroll(
+                sid,
+                int(data.get("x1", 0)),
+                int(data.get("y1", 0)),
+                int(data.get("x2", 0)),
+                int(data.get("y2", 0)),
+            )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/url/{sid}", summary="Get Current URL")
 def web_url(sid: str):
     """Return the current URL of a web session."""

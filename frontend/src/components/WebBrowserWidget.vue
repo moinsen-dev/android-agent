@@ -185,6 +185,18 @@ function handleClick(e: MouseEvent) {
   })
 }
 
+function handleWheel(e: WheelEvent) {
+  e.preventDefault()
+  // Send wheel deltas to the backend. Damping factor keeps scrolling smooth.
+  const dx = Math.round(e.deltaX)
+  const dy = Math.round(e.deltaY)
+  if (dx === 0 && dy === 0) return
+  api('/api/web/scroll', {
+    method: 'POST',
+    body: JSON.stringify({ sid: props.sid, dx, dy }),
+  })
+}
+
 async function pressKey(key: string) {
   if (!props.sid) return
   await api('/api/web/key', {
@@ -256,7 +268,7 @@ defineExpose({ startStream, stopStream, streaming, refresh: pollFrame })
     <div class="wbw-content">
       <div class="wbw-viewport" :style="{ width: viewportWidth + 'px', height: viewportHeight + 'px' }">
         <div v-if="streaming && streamImg" class="wbw-frame">
-          <img :src="streamImg" :key="imgKey" @click="handleClick" draggable="false" />
+          <img :src="streamImg" :key="imgKey" @click="handleClick" @wheel="handleWheel" draggable="false" />
         </div>
         <div v-else-if="streaming && isLoading" class="wbw-placeholder">
           <span class="wbw-spinner">⏳</span> Loading preview...
@@ -382,6 +394,7 @@ defineExpose({ startStream, stopStream, streaming, refresh: pollFrame })
   background: #070b10;
   padding: 12px;
   gap: 12px;
+  align-items: flex-start;
 }
 .wbw-viewport {
   flex-shrink: 0;
@@ -391,18 +404,21 @@ defineExpose({ startStream, stopStream, streaming, refresh: pollFrame })
   overflow: auto;
   resize: both;
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .wbw-frame {
   width: 100%;
-  min-width: 100%;
-  min-height: 100%;
+  height: 100%;
   display: flex;
-  align-items: flex-start;
-  justify-content: flex-start;
+  align-items: center;
+  justify-content: center;
 }
 .wbw-frame img {
-  width: 100%;
-  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
   display: block;
   cursor: crosshair;
 }

@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-04-02T16:46:53Z",
-  "skill_count": 4,
-  "total_actions": 17,
-  "total_workflows": 5,
+  "generated_at": "2026-07-11T10:46:00Z",
+  "skill_count": 5,
+  "total_actions": 20,
+  "total_workflows": 6,
   "skills": [
     {
       "name": "base",
@@ -123,6 +123,28 @@
       "source": "official",
       "repo_url": "https://github.com/ghost-in-the-droid/android-agent/tree/main/registry/tiktok",
       "last_updated": "2026-04-02T16:46:53Z"
+    },
+    {
+      "name": "user_app_tester",
+      "display_name": "User App Tester",
+      "description": "Simulates a real user between 20 and 30 exploring an unknown Android app. Collects screenshots and UI trees, then generates structured feedback covering usability issues, confusing flows, logic problems, and an overall rating.",
+      "version": "1.0.0",
+      "app_package": null,
+      "author": "android-agent",
+      "license": "MIT",
+      "actions": [
+        "open_app",
+        "explore_app",
+        "generate_feedback"
+      ],
+      "workflows": [
+        "test_app_as_user"
+      ],
+      "elements_count": 0,
+      "tested_on": [],
+      "source": "official",
+      "repo_url": "https://github.com/ghost-in-the-droid/android-agent/tree/main/registry/user_app_tester",
+      "last_updated": "2026-07-11T10:46:00Z"
     }
   ]
 }

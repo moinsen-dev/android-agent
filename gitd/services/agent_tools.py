@@ -337,6 +337,19 @@ def _execute_tool_inner(name: str, args: dict) -> str:
                 if r.get("ok"):
                     return f"Clicked element #{args['idx']}"
                 return f"Error: {r.get('error', 'unknown')}"
+            elif name == "swipe":
+                x1, y1 = args["x1"], args["y1"]
+                x2, y2 = args["x2"], args["y2"]
+                # Convert swipe vector to wheel delta. dy is inverted so swipe-down
+                # (finger moving up) scrolls the page down, matching Android semantics.
+                dx = x2 - x1
+                dy = y1 - y2
+                if abs(dy) > abs(dx):
+                    web_context.scroll_wheel(sid, 0, dy)
+                    return f"Scrolled by wheel (0, {dy})"
+                else:
+                    web_context.scroll(sid, x1, y1, x2, y2)
+                    return f"Scrolled ({x1},{y1}) -> ({x2},{y2})"
             elif name == "type_text":
                 web_context.type_text(sid, args["text"])
                 return f"Typed: {args['text']}"

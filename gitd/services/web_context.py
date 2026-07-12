@@ -232,71 +232,76 @@ def screenshot(sid: str, quality: int = 80) -> dict[str, Any]:
     return _worker.submit(_fn)
 
 
+def _get_interactive_elements_raw(state: _WorkerState, sid: str) -> list[dict[str, Any]]:
+    """Core implementation that runs inside the worker thread.
+
+    MUST NOT call any public function that submits back to the worker queue,
+    otherwise nested worker calls deadlock the thread.
+    """
+    session = _get_session(state, sid)
+    if not session:
+        raise ValueError(f"Web session not found: {sid}")
+
+    selectors = [
+        "a",
+        "button",
+        "input",
+        "textarea",
+        "select",
+        '[role="button"]',
+        '[role="link"]',
+        '[role="textbox"]',
+        '[role="searchbox"]',
+        '[role="checkbox"]',
+        '[role="radio"]',
+        '[tabindex]:not([tabindex="-1"])',
+    ]
+    selector = ", ".join(selectors)
+
+    elements = session.page.query_selector_all(selector)
+    result = []
+    for idx, el in enumerate(elements):
+        try:
+            box = el.bounding_box()
+            if not box:
+                continue
+            if box["width"] <= 0 or box["height"] <= 0:
+                continue
+            text = (el.inner_text() or "").strip().replace("\n", " ")[:80]
+            tag = el.evaluate("e => e.tagName.toLowerCase()")
+            el_type = el.get_attribute("type") or ""
+            role = el.get_attribute("role") or ""
+            aria_label = el.get_attribute("aria-label") or ""
+            placeholder = el.get_attribute("placeholder") or ""
+            label = text or aria_label or placeholder or el.get_attribute("title") or ""
+            result.append(
+                {
+                    "idx": idx,
+                    "text": label,
+                    "tag": tag,
+                    "type": el_type,
+                    "role": role,
+                    "bounds": {
+                        "x1": int(box["x"]),
+                        "y1": int(box["y"]),
+                        "x2": int(box["x"] + box["width"]),
+                        "y2": int(box["y"] + box["height"]),
+                    },
+                    "center": {
+                        "x": int(box["x"] + box["width"] / 2),
+                        "y": int(box["y"] + box["height"] / 2),
+                    },
+                    "clickable": True,
+                }
+            )
+        except Exception:
+            continue
+    return result
+
+
 def get_interactive_elements(sid: str) -> list[dict[str, Any]]:
     """Return clickable/focusable elements with idx, text, tag, bounds, center."""
-
-    def _fn(state: _WorkerState) -> list[dict[str, Any]]:
-        session = _get_session(state, sid)
-        if not session:
-            raise ValueError(f"Web session not found: {sid}")
-
-        selectors = [
-            "a",
-            "button",
-            "input",
-            "textarea",
-            "select",
-            '[role="button"]',
-            '[role="link"]',
-            '[role="textbox"]',
-            '[role="searchbox"]',
-            '[role="checkbox"]',
-            '[role="radio"]',
-            '[tabindex]:not([tabindex="-1"])',
-        ]
-        selector = ", ".join(selectors)
-
-        elements = session.page.query_selector_all(selector)
-        result = []
-        for idx, el in enumerate(elements):
-            try:
-                box = el.bounding_box()
-                if not box:
-                    continue
-                if box["width"] <= 0 or box["height"] <= 0:
-                    continue
-                text = (el.inner_text() or "").strip().replace("\n", " ")[:80]
-                tag = el.evaluate("e => e.tagName.toLowerCase()")
-                el_type = el.get_attribute("type") or ""
-                role = el.get_attribute("role") or ""
-                aria_label = el.get_attribute("aria-label") or ""
-                placeholder = el.get_attribute("placeholder") or ""
-                label = text or aria_label or placeholder or el.get_attribute("title") or ""
-                result.append(
-                    {
-                        "idx": idx,
-                        "text": label,
-                        "tag": tag,
-                        "type": el_type,
-                        "role": role,
-                        "bounds": {
-                            "x1": int(box["x"]),
-                            "y1": int(box["y"]),
-                            "x2": int(box["x"] + box["width"]),
-                            "y2": int(box["y"] + box["height"]),
-                        },
-                        "center": {
-                            "x": int(box["x"] + box["width"] / 2),
-                            "y": int(box["y"] + box["height"] / 2),
-                        },
-                        "clickable": True,
-                    }
-                )
-            except Exception:
-                continue
-        return result
-
-    return _worker.submit(_fn)
+    return _worker.submit(lambda state: _get_interactive_elements_raw(state, sid))
 
 
 def _node_info(node: Any) -> str:
@@ -429,7 +434,7 @@ def tap_element(sid: str, idx: int) -> dict[str, Any]:
         session = _get_session(state, sid)
         if not session:
             raise ValueError(f"Web session not found: {sid}")
-        elements = get_interactive_elements(sid)
+        elements = _get_interactive_elements_raw(state, sid)
         if idx < 0 or idx >= len(elements):
             return {"ok": False, "error": f"Element index {idx} out of range (0-{len(elements) - 1})"}
         el = elements[idx]
@@ -464,7 +469,7 @@ def type_text(sid: str, selector_or_text: str, text: str | None = None) -> dict[
         else:
             if selector.startswith("#") and selector[1:].isdigit():
                 idx = int(selector[1:])
-                elements = get_interactive_elements(sid)
+                elements = _get_interactive_elements_raw(state, sid)
                 if idx < 0 or idx >= len(elements):
                     return {"ok": False, "error": f"Element index {idx} out of range"}
                 el = elements[idx]
@@ -521,6 +526,19 @@ def scroll(sid: str, x1: int, y1: int, x2: int, y2: int) -> dict[str, Any]:
         session.page.mouse.move(x2, y2)
         session.page.mouse.up()
         return {"ok": True}
+
+    return _worker.submit(_fn)
+
+
+def scroll_wheel(sid: str, dx: int, dy: int) -> dict[str, Any]:
+    """Scroll using the mouse wheel (natural deltas: dy > 0 = down)."""
+
+    def _fn(state: _WorkerState) -> dict[str, Any]:
+        session = _get_session(state, sid)
+        if not session:
+            raise ValueError(f"Web session not found: {sid}")
+        session.page.mouse.wheel(dx, dy)
+        return {"ok": True, "dx": dx, "dy": dy}
 
     return _worker.submit(_fn)
 

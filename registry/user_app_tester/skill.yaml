@@ -1,0 +1,75 @@
+name: user_app_tester
+display_name: User App Tester
+version: "1.0.0"
+description: >
+  Simulates a real user between 20 and 30 exploring an unknown Android app.
+  Collects screenshots and UI trees, then generates structured feedback covering
+  usability issues, confusing flows, logic problems, and an overall rating.
+author: android-agent
+license: MIT
+app_package: null
+
+exports:
+  actions:
+    - name: open_app
+      description: Launch the target app and wait for it to settle
+      params:
+        app_package: { type: string, required: true }
+    - name: explore_app
+      description: Explore the app for N steps while recording screenshots and UI trees
+      params:
+        app_package: { type: string, required: true }
+        steps: { type: integer, required: false, default: 12 }
+    - name: generate_feedback
+      description: Generate structured user feedback from the recorded exploration
+      params:
+        provider: { type: string, required: false, default: deepseek }
+        model: { type: string, required: false, default: deepseek-chat }
+        output_path: { type: string, required: false }
+  workflows:
+    - name: test_app_as_user
+      description: Full user-journey test of an unknown app
+      steps: [open_app, explore_app, generate_feedback]
+
+default_params:
+  actions:
+    open_app:
+      app_package: com.example.app
+    explore_app:
+      app_package: com.example.app
+      steps: 12
+    generate_feedback:
+      provider: deepseek
+      model: deepseek-chat
+  workflows:
+    test_app_as_user:
+      app_package: com.example.app
+      steps: 12
+      provider: deepseek
+      model: deepseek-chat
+
+popup_detectors:
+  - detect: "allow"
+    button: "Allow"
+    label: "Generic permission allow"
+  - detect: "while using the app"
+    button: "While using the app"
+    label: "Location permission"
+  - detect: "don't allow"
+    button: "Don't allow"
+    label: "Generic deny"
+  - detect: "skip"
+    button: "Skip"
+    label: "Onboarding skip"
+  - detect: "maybe later"
+    button: "Maybe later"
+    label: "Later dialog"
+  - detect: "close"
+    button: "Close"
+    label: "Close dialog"
+  - detect: "got it"
+    button: "Got it"
+    label: "Got it dialog"
+  - detect: "no thanks"
+    button: "No thanks"
+    label: "No thanks dialog"

@@ -55,6 +55,18 @@ class TestWeb:
         assert "tree" in r.json()
         client.delete(f"/api/web/session/{sid}")
 
+    def test_scroll(self, client):
+        r = client.post("/api/web/session", json={})
+        sid = r.json()["sid"]
+        client.post(
+            "/api/web/navigate",
+            json={"sid": sid, "url": "data:text/html,<div style='height:2000px'>Top</div>"},
+        )
+        r = client.post("/api/web/scroll", json={"sid": sid, "dx": 0, "dy": 200})
+        assert r.status_code == 200
+        assert r.json()["ok"]
+        client.delete(f"/api/web/session/{sid}")
+
     def test_close_missing_session(self, client):
         r = client.delete("/api/web/session/does-not-exist")
         assert r.status_code == 404

@@ -50,10 +50,50 @@ class TestWebContext:
         assert result["viewport"]["width"] == 390
         assert result["viewport"]["height"] == 844
 
+    def test_scroll_wheel(self, browser_session):
+        web_context.navigate(
+            browser_session.sid,
+            "data:text/html,<div id='box' style='height:2000px'>Top</div>",
+        )
+        before = web_context.evaluate(browser_session.sid, "() => window.scrollY")
+        result = web_context.scroll_wheel(browser_session.sid, 0, 200)
+        assert result["ok"]
+        import time
+
+        time.sleep(0.3)
+        after = web_context.evaluate(browser_session.sid, "() => window.scrollY")
+        assert after > before
+
+    def test_scroll_drag(self, browser_session):
+        web_context.navigate(
+            browser_session.sid,
+            "data:text/html,<div id='box' style='height:2000px'>Top</div>",
+        )
+        # Drag-scrolling is page-dependent; just verify the call succeeds without error.
+        result = web_context.scroll(browser_session.sid, 100, 500, 100, 100)
+        assert result["ok"]
+
     def test_tap_and_type(self, browser_session):
         web_context.navigate(browser_session.sid, "data:text/html,<input id='q'/>")
         web_context.tap(browser_session.sid, 10, 10)
         web_context.type_text(browser_session.sid, "hello")
+        value = web_context.evaluate(browser_session.sid, "() => document.getElementById('q').value")
+        assert value == "hello"
+
+    def test_tap_element(self, browser_session):
+        web_context.navigate(
+            browser_session.sid,
+            "data:text/html,<button id='b' onclick=\"document.body.innerHTML='clicked'\">Click me</button>",
+        )
+        result = web_context.tap_element(browser_session.sid, 0)
+        assert result["ok"]
+        html = web_context.evaluate(browser_session.sid, "() => document.body.innerHTML")
+        assert "clicked" in html
+
+    def test_type_text_by_element_index(self, browser_session):
+        web_context.navigate(browser_session.sid, "data:text/html,<input id='q'/>")
+        result = web_context.type_text(browser_session.sid, "#0", "hello")
+        assert result["ok"]
         value = web_context.evaluate(browser_session.sid, "() => document.getElementById('q').value")
         assert value == "hello"
 
