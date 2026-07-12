@@ -1,0 +1,27 @@
+name: _review_common
+display_name: Review Common Actions
+version: "1.0.0"
+description: Shared exploration and LLM-reporting actions used by UI/UX and logic review skills.
+author: android-agent
+license: MIT
+app_package: null
+
+exports:
+  actions:
+    - name: collect_screenshots_and_trees
+      description: Open an app and explore it while saving screenshots and UI trees
+      params:
+        app_package: { type: string, required: true }
+        steps: { type: integer, required: false, default: 12 }
+        prefix: { type: string, required: false, default: review }
+    - name: run_llm_review
+      description: Generate a structured LLM review report from an exploration run directory
+      params:
+        run_dir: { type: string, required: true }
+        provider: { type: string, required: false, default: deepseek }
+        model: { type: string, required: false, default: deepseek-chat }
+        system_prompt: { type: string, required: true }
+        rubric: { type: string, required: true }
+        report_name: { type: string, required: false, default: report.json }
+        extra_context: { type: string, required: false, default: "" }
+  workflows: []

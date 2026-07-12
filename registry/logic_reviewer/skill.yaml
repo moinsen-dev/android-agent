@@ -1,0 +1,71 @@
+name: logic_reviewer
+display_name: Logic Reviewer
+version: "1.0.0"
+description: >
+  Reviews an Android app for logical consistency, missing features, and broken flows.
+  Uses optional app context (purpose, audience, key features) to judge whether the app makes sense.
+author: android-agent
+license: MIT
+app_package: null
+
+exports:
+  actions:
+    - name: collect_logic_context
+      description: Explore the app and collect screenshots + UI trees
+      params:
+        app_package: { type: string, required: true }
+        steps: { type: integer, required: false, default: 14 }
+    - name: generate_logic_report
+      description: Generate the structured logic review report
+      params:
+        run_dir: { type: string, required: true }
+        provider: { type: string, required: false, default: deepseek }
+        model: { type: string, required: false, default: deepseek-chat }
+        app_context: { type: string, required: false, default: "" }
+  workflows:
+    - name: review_logic
+      description: Full logic/feature review of an Android app
+      steps: [collect_logic_context, generate_logic_report]
+
+default_params:
+  actions:
+    collect_logic_context:
+      app_package: com.example.app
+      steps: 14
+    generate_logic_report:
+      provider: deepseek
+      model: deepseek-chat
+      app_context: ""
+  workflows:
+    review_logic:
+      app_package: com.example.app
+      steps: 14
+      provider: deepseek
+      model: deepseek-chat
+      app_context: ""
+
+popup_detectors:
+  - detect: "allow"
+    button: "Allow"
+    label: "Generic permission allow"
+  - detect: "while using the app"
+    button: "While using the app"
+    label: "Location permission"
+  - detect: "don't allow"
+    button: "Don't allow"
+    label: "Generic deny"
+  - detect: "skip"
+    button: "Skip"
+    label: "Onboarding skip"
+  - detect: "maybe later"
+    button: "Maybe later"
+    label: "Later dialog"
+  - detect: "close"
+    button: "Close"
+    label: "Close dialog"
+  - detect: "got it"
+    button: "Got it"
+    label: "Got it dialog"
+  - detect: "no thanks"
+    button: "No thanks"
+    label: "No thanks dialog"

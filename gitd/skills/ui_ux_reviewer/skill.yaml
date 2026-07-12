@@ -1,0 +1,68 @@
+name: ui_ux_reviewer
+display_name: UI/UX Reviewer
+version: "1.0.0"
+description: >
+  Reviews an Android app through the lens of an award-winning, empathetic UI/UX designer.
+  Produces a structured report with scores, issues, principles, and concrete fixes.
+author: android-agent
+license: MIT
+app_package: null
+
+exports:
+  actions:
+    - name: collect_ui_ux_context
+      description: Explore the app and collect screenshots + UI trees
+      params:
+        app_package: { type: string, required: true }
+        steps: { type: integer, required: false, default: 14 }
+    - name: generate_ui_ux_report
+      description: Generate the structured UI/UX review report
+      params:
+        run_dir: { type: string, required: true }
+        provider: { type: string, required: false, default: deepseek }
+        model: { type: string, required: false, default: deepseek-chat }
+  workflows:
+    - name: review_ui_ux
+      description: Full UI/UX review of an Android app
+      steps: [collect_ui_ux_context, generate_ui_ux_report]
+
+default_params:
+  actions:
+    collect_ui_ux_context:
+      app_package: com.example.app
+      steps: 14
+    generate_ui_ux_report:
+      provider: deepseek
+      model: deepseek-chat
+  workflows:
+    review_ui_ux:
+      app_package: com.example.app
+      steps: 14
+      provider: deepseek
+      model: deepseek-chat
+
+popup_detectors:
+  - detect: "allow"
+    button: "Allow"
+    label: "Generic permission allow"
+  - detect: "while using the app"
+    button: "While using the app"
+    label: "Location permission"
+  - detect: "don't allow"
+    button: "Don't allow"
+    label: "Generic deny"
+  - detect: "skip"
+    button: "Skip"
+    label: "Onboarding skip"
+  - detect: "maybe later"
+    button: "Maybe later"
+    label: "Later dialog"
+  - detect: "close"
+    button: "Close"
+    label: "Close dialog"
+  - detect: "got it"
+    button: "Got it"
+    label: "Got it dialog"
+  - detect: "no thanks"
+    button: "No thanks"
+    label: "No thanks dialog"

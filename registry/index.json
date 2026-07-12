@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-07-11T10:46:00Z",
-  "skill_count": 5,
-  "total_actions": 20,
-  "total_workflows": 6,
+  "generated_at": "2026-07-11T11:15:00Z",
+  "skill_count": 8,
+  "total_actions": 25,
+  "total_workflows": 8,
   "skills": [
     {
       "name": "base",
@@ -145,6 +145,67 @@
       "source": "official",
       "repo_url": "https://github.com/ghost-in-the-droid/android-agent/tree/main/registry/user_app_tester",
       "last_updated": "2026-07-11T10:46:00Z"
+    },
+    {
+      "name": "_review_common",
+      "display_name": "Review Common Actions",
+      "description": "Shared exploration and LLM-reporting actions used by UI/UX and logic review skills.",
+      "version": "1.0.0",
+      "app_package": null,
+      "author": "android-agent",
+      "license": "MIT",
+      "actions": [
+        "collect_screenshots_and_trees",
+        "run_llm_review"
+      ],
+      "workflows": [],
+      "elements_count": 0,
+      "tested_on": [],
+      "source": "official",
+      "repo_url": "https://github.com/ghost-in-the-droid/android-agent/tree/main/registry/_review_common",
+      "last_updated": "2026-07-11T11:15:00Z"
+    },
+    {
+      "name": "ui_ux_reviewer",
+      "display_name": "UI/UX Reviewer",
+      "description": "Reviews an Android app through the lens of an award-winning, empathetic UI/UX designer. Produces a structured report with scores, issues, principles, and concrete fixes.",
+      "version": "1.0.0",
+      "app_package": null,
+      "author": "android-agent",
+      "license": "MIT",
+      "actions": [
+        "collect_ui_ux_context",
+        "generate_ui_ux_report"
+      ],
+      "workflows": [
+        "review_ui_ux"
+      ],
+      "elements_count": 0,
+      "tested_on": [],
+      "source": "official",
+      "repo_url": "https://github.com/ghost-in-the-droid/android-agent/tree/main/registry/ui_ux_reviewer",
+      "last_updated": "2026-07-11T11:15:00Z"
+    },
+    {
+      "name": "logic_reviewer",
+      "display_name": "Logic Reviewer",
+      "description": "Reviews an Android app for logical consistency, missing features, and broken flows. Uses optional app context (purpose, audience, key features) to judge whether the app makes sense.",
+      "version": "1.0.0",
+      "app_package": null,
+      "author": "android-agent",
+      "license": "MIT",
+      "actions": [
+        "collect_logic_context",
+        "generate_logic_report"
+      ],
+      "workflows": [
+        "review_logic"
+      ],
+      "elements_count": 0,
+      "tested_on": [],
+      "source": "official",
+      "repo_url": "https://github.com/ghost-in-the-droid/android-agent/tree/main/registry/logic_reviewer",
+      "last_updated": "2026-07-11T11:15:00Z"
     }
   ]
 }
